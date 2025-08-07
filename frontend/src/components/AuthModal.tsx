@@ -1,11 +1,13 @@
 import Modal from "./Modal.tsx";
 import React from "react";
+import {observer} from "mobx-react-lite";
+import {modalStore} from "../store/ModalStore.ts";
 
-const AuthModal = ({ open, setOpen, mode, setMode }) => {
-    const isLogin = mode == "login";
+const AuthModal = observer( () => {
+    const isLogin = modalStore.mode == "login";
     const hidden = open ? "visible opacity-100" : "invisible opacity-0"
     return(
-        <Modal modal={open} setModal={setOpen} hidden={hidden}>
+        <Modal hidden={hidden}>
             <section onClick={e => e.stopPropagation()} className={`w-[25%] h-[75%] bg-[#181E29] border-[#353C4A] rounded-[24px] border-3 ${hidden}`}>
                 {/*<button onClick={() => setOpen(false)} className="w-[50px]">×</button>*/}
                 <h2 className="text-[60px] pt-[100px] font-sans font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-pink-500 to-blue-700 text-center">
@@ -26,7 +28,7 @@ const AuthModal = ({ open, setOpen, mode, setMode }) => {
                     {isLogin ? "No account? " : "Already have an account? "}
                     <button
                         className="underline underline-offset-2 cursor-pointer"
-                        onClick={() => setMode(isLogin ? "register" : "login")}
+                        onClick={() => modalStore.toggleMode()}
                     >
                         {isLogin ? "Create one" : "Sign In"}
                     </button>
@@ -35,6 +37,6 @@ const AuthModal = ({ open, setOpen, mode, setMode }) => {
             </section>
         </Modal>
     )
-}
+})
 
 export default AuthModal;

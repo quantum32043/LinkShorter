@@ -1,9 +1,10 @@
 import "mobx-react-lite"
-import {makeAutoObservable} from "mobx";
+import {makeAutoObservable, runInAction} from "mobx";
+import {authApi} from "../api/authApi.ts";
 
 class AuthStore {
     isAuthorized = false;
-    accessToken = ""
+    accessToken: string | null = null
     constructor() {
         makeAutoObservable(this)
 
@@ -12,6 +13,36 @@ class AuthStore {
             this.accessToken = savedToken
             this.isAuthorized = true
         }
+    }
+
+    setAuthorized(value) {
+        this.isAuthorized = value
+    }
+
+    setAccessToken(value) {
+        this.accessToken = value
+    }
+
+    async login(email: string, password: string) {
+        const {data} = await authApi.login(email, password)
+        this.accessToken = data.accessToken
+        this.isAuthorized = true
+        localStorage.setItem("accessToken", data.accessToken)
+    }
+
+    async register(email: string, password: string) {
+        const {data} = await authApi.register(email, password)
+        runInAction(() => {
+            this.accessToken = data.accessToken
+            this.isAuthorized = true
+        })
+    }
+
+    async logout() {
+        await authApi.logout()
+        this.accessToken = null
+        this.isAuthorized = false
+        localStorage.removeItem("accessToken")
     }
 }
 

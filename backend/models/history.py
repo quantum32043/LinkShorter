@@ -2,9 +2,12 @@ from datetime import datetime
 
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing_extensions import TYPE_CHECKING
 
 from backend.models.base import Base
-from backend.models.user import User
+
+if TYPE_CHECKING:
+    from backend.models.user import User
 
 
 class History(Base):

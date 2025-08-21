@@ -1,10 +1,11 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base
-from backend.models.history import History
 
+if TYPE_CHECKING:
+    from backend.models.history import History
 
 class User(Base):
     __tablename__ = 'users'

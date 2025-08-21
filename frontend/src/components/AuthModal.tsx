@@ -2,6 +2,7 @@ import Modal from "./Modal.tsx";
 import React from "react";
 import {observer} from "mobx-react-lite";
 import {modalStore} from "../store/ModalStore.ts";
+import {authStore} from "../store/AuthStore.ts";
 
 const AuthModal = observer( () => {
     const isLogin = modalStore.mode == "login";

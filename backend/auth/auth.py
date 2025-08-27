@@ -14,7 +14,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(hashed_password: str, password: str) -> bool:
-    return context.verify(password, hashed_password)
+    return context.verify(
+        secret=password,
+        hash=hashed_password
+    )
 
 
 def create_token(data: dict, expires_delta: timedelta):

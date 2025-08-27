@@ -14,12 +14,12 @@ class History(Base):
     __tablename__ = 'history'
 
     id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('user.id'))
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     original_link: Mapped[str] = mapped_column()
     short_link: Mapped[str] = mapped_column()
     date: Mapped[datetime] = mapped_column()
 
-    user: Mapped[User] = relationship(back_populates="history")
+    user: Mapped["User"] = relationship("User", back_populates="history")
 
     def __repr__(self) -> str:
         return (f"History(id={self.id!r}, user_id={self.user_id!r}, original_link={self.original_link!r}, "

@@ -14,5 +14,7 @@ export const authApi = {
     register: (username: string, password: string) =>
         api.post("/register", { username, password }),
     refresh: () =>
-        api.post("/refresh")
+        api.post("/refresh"),
+    me: () =>
+        api.get("/me")
 }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect} from "react";
 import { observer } from "mobx-react-lite";
 import { authStore } from "../store/AuthStore";
 import type { HistoryTableRow } from "../types.ts";
@@ -20,9 +20,8 @@ const HistoryTable: React.FC<HistoryTableProps> = observer(({ history }) => {
         originalLink: "string",
         date: "string"}]
     const showRows = authStore.isAuthorized ? history : history.slice(0, 2);
-
     return (
-        <div className="relative w-full mt-[140px] mx-[150px]">
+        <div className="relative w-full mt-[135px] mx-[150px]">
             <table className="w-full rounded-t-[10px] overflow-hidden font-sans text-[15px] font-bold text-white text-center border-separate border-spacing-y-[3px]">
                 <thead>
                 <tr className="h-[65px] bg-[#181E29]">

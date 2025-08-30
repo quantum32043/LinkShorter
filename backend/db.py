@@ -1,7 +1,13 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
+import os
 
-engine = create_async_engine("postgresql+asyncpg://admin:3204quant2043@localhost:5432/shorter_db")
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+import dotenv
+
+dotenv.load_dotenv()
+
+engine = create_async_engine(
+    f"postgresql+asyncpg://{os.getenv("POSTGRES_USER")}:{os.getenv("POSTGRES_PASSWORD")}@localhost:5432/{os.getenv("POSTGRES_DB")}"
+)
 
 new_session = async_sessionmaker(engine, expire_on_commit=False)
 

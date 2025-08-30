@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 import dotenv
 from jose import jwt, JWTError
@@ -22,7 +22,7 @@ def verify_password(hashed_password: str, password: str) -> bool:
 
 def create_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
-    expire = datetime.now() + expires_delta
+    expire = datetime.now(UTC) + expires_delta
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, algorithm=os.getenv("ALGORITHM"), key=os.getenv("SECRET_KEY"))
 
@@ -32,12 +32,10 @@ def create_access_token(data: dict):
 
 
 def create_refresh_token(data: dict):
-    return create_token(data=data, expires_delta=timedelta(days=float(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))))
+    return create_token(data=data, expires_delta=timedelta(minutes=float(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))))
 
 
 def decode_token(token: str):
-    try:
-        payload = jwt.decode(token, key=os.getenv("SECRET_KEY"), algorithms=os.getenv("ALGORITHM"))
-        return payload
-    except JWTError:
-        return None
+    payload = jwt.decode(token, key=os.getenv("SECRET_KEY"), algorithms=os.getenv("ALGORITHM"))
+    return payload
+

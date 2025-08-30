@@ -1,8 +1,13 @@
+import os
+
+import dotenv
 from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import JSONResponse
+from fastapi.requests import Request
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import current_user
 
@@ -13,7 +18,8 @@ from backend.schemas.token import Token
 from backend.schemas.user import UserCreateRequest, UserCreateResponse
 
 routes = APIRouter(prefix="/api")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+dotenv.load_dotenv()
 
 
 @routes.post('/login', response_model=Token)
@@ -27,7 +33,16 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     refresh_token = create_refresh_token({"sub": user.username})
     await db.execute(update(User).where(User.username == user.username).values(refresh_token=refresh_token))
     await db.commit()
-    return Token(access_token=access_token, refresh_token=refresh_token)
+    response = JSONResponse(status_code=200, content={"access_token": access_token})
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS")) * 24 * 60 * 60
+    )
+    return response
 
 
 @routes.post('/register', response_model=UserCreateResponse)
@@ -50,19 +65,40 @@ async def register(user: UserCreateRequest, db: AsyncSession = Depends(get_db)):
 
 
 @routes.post('/refresh', response_model=Token)
-async def refresh(refresh_token: str = Body(...), db: AsyncSession = Depends(get_db)):
+async def refresh(request: Request, db: AsyncSession = Depends(get_db)):
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=403, detail="No refresh token")
     try:
         payload = decode_token(refresh_token)
         username = payload['sub']
         if username is None:
             raise HTTPException(status_code=401, detail="Invalid token")
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=403, detail="Invalid or expired token")
+
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
+    if not user or user.refresh_token != refresh_token:
+        raise HTTPException(status_code=403, detail="Invalid refresh token")
 
     new_access_token = create_access_token({"sub": username})
     new_refresh_token = create_refresh_token({"sub": username})
 
-    return Token(access_token=new_access_token, refresh_token=new_refresh_token)
+    await db.execute(update(User).where(User.username == username).values(refresh_token=new_refresh_token))
+    await db.commit()
+
+    response = JSONResponse(status_code=200, content={"access_token": new_access_token})
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS")) * 24 * 60 * 60
+    )
+
+    return response
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
@@ -86,4 +122,4 @@ def read_users_me(current_user: User = Depends(get_current_user)):
     return UserCreateResponse(id=current_user.id, username=current_user.username)
 
 
-
+# @routes.post("/short", response_model=)

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import dotenv
 from fastapi import APIRouter, Depends, HTTPException, Body
@@ -8,16 +9,19 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
-from sqlalchemy.orm import Session
-from sqlalchemy.sql.functions import current_user
+from starlette.responses import RedirectResponse
+from utils import generate_random_string
 
 from backend.auth.auth import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from backend.db import get_db
+from backend.models.short import Short
 from backend.models.user import User
+from backend.schemas.short import ShortLinkRequest, ShortLinkResponse
 from backend.schemas.token import Token
 from backend.schemas.user import UserCreateRequest, UserCreateResponse
 
 routes = APIRouter(prefix="/api")
+redirect_route = APIRouter(prefix="")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 dotenv.load_dotenv()
 
@@ -118,8 +122,48 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
 
 
 @routes.get("/me", response_model=UserCreateResponse)
-def read_users_me(current_user: User = Depends(get_current_user)):
+async def read_users_me(current_user: User = Depends(get_current_user)):
     return UserCreateResponse(id=current_user.id, username=current_user.username)
 
 
-# @routes.post("/short", response_model=)
+@routes.post("/short", response_model=ShortLinkResponse)
+async def generate_short_url(url: ShortLinkRequest, db: AsyncSession = Depends(get_db)):
+    unique_url = None
+    while not unique_url:
+        candidate = os.getenv("HOST_NAME") + "short/" + generate_random_string()
+        result = await db.execute(select(Short).where(Short.short_link == candidate))
+        existing = result.scalars().first()
+        if not existing:
+            unique_url = candidate
+
+    shorted_url = Short(
+        original_link=url.original_url,
+        short_link=unique_url,
+        date=datetime.now()
+    )
+
+    db.add(shorted_url)
+    await db.commit()
+    await db.refresh(shorted_url)
+
+    print(shorted_url)
+
+    return ShortLinkResponse(
+        original_url=shorted_url.original_link,
+        short_url=shorted_url.short_link,
+        date=shorted_url.date
+    )
+
+
+@redirect_route.get("/short/{short_id}")
+async def read_shorts(short_id: str, db: AsyncSession = Depends(get_db)):
+    unique_url = os.getenv("HOST_NAME") + "short/" + short_id
+    print("HOST_NAME:", os.getenv("HOST_NAME"))
+    print("short_id:", short_id)
+    print("unique_url:", unique_url)
+
+    result = await db.execute(select(Short).where(Short.short_link == unique_url))
+    short = result.scalars().first()
+    print("short from DB:", short)
+
+    return RedirectResponse(url=short.original_link)

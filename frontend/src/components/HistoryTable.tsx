@@ -9,16 +9,16 @@ interface HistoryTableProps {
 }
 
 const HistoryTable: React.FC<HistoryTableProps> = observer(({ history }) => {
-    history = [{id: 1,
-    shortLink: "string",
-    originalLink: "string",
-    date: "string"},{id: 1,
-        shortLink: "string",
-        originalLink: "string",
-        date: "string"}, {id: 1,
-        shortLink: "string",
-        originalLink: "string",
-        date: "string"}]
+    // history = [{id: 1,
+    // shortLink: "string",
+    // originalLink: "string",
+    // date: "string"},{id: 1,
+    //     shortLink: "string",
+    //     originalLink: "string",
+    //     date: "string"}, {id: 1,
+    //     shortLink: "string",
+    //     originalLink: "string",
+    //     date: "string"}]
     const showRows = authStore.isAuthorized ? history : history.slice(0, 2);
     return (
         <div className="relative w-full mt-[135px] mx-[150px]">
@@ -47,9 +47,9 @@ const HistoryTable: React.FC<HistoryTableProps> = observer(({ history }) => {
                 </tbody>
             </table>
 
-            {!authStore.isAuthorized && history.length > 1 && (
+            {!authStore.isAuthorized && (
                 <div
-                    className="absolute top-[133px] left-0 right-0 bottom-0 flex items-center justify-center
+                    className="absolute top-[68px] left-0 right-0 bottom-0 flex items-center justify-center
                      bg-[transperent] backdrop-blur-sm select-none overflow-hidden"
                 >
                     <p className="text-white text-xl font-medium">

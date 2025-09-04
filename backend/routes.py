@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime
 
 import dotenv
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 from starlette.responses import RedirectResponse
-from utils import generate_random_string
+from utils import generate_random_string, get_current_user, get_optional_user
 
 from backend.auth.auth import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from backend.db import get_db
@@ -22,7 +23,6 @@ from backend.schemas.user import UserCreateRequest, UserCreateResponse
 
 routes = APIRouter(prefix="/api")
 redirect_route = APIRouter(prefix="")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 dotenv.load_dotenv()
 
 
@@ -105,54 +105,64 @@ async def refresh(request: Request, db: AsyncSession = Depends(get_db)):
     return response
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
-    try:
-        payload = decode_token(token)
-        username = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-
-    result = await db.execute(select(User).where(User.username == username))
-    user = result.scalars().first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-
 @routes.get("/me", response_model=UserCreateResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return UserCreateResponse(id=current_user.id, username=current_user.username)
 
 
 @routes.post("/short", response_model=ShortLinkResponse)
-async def generate_short_url(url: ShortLinkRequest, db: AsyncSession = Depends(get_db)):
-    unique_url = None
-    while not unique_url:
+async def generate_short_url(
+        url: ShortLinkRequest,
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        user: User | None = Depends(get_optional_user)
+):
+    exist = True
+    short_link = None
+    while exist:
         candidate = os.getenv("HOST_NAME") + "short/" + generate_random_string()
         result = await db.execute(select(Short).where(Short.short_link == candidate))
-        existing = result.scalars().first()
-        if not existing:
-            unique_url = candidate
+        exist = result.scalars().first()
+        if not exist:
+            short_link = candidate
+
+    session_id = request.cookies.get("session_id")
 
     shorted_url = Short(
+        session_id=session_id,
+        user_id=user.id if user else None,
         original_link=url.original_url,
-        short_link=unique_url,
+        short_link=short_link,
         date=datetime.now()
     )
+
+    print(shorted_url)
+
+    response = JSONResponse(
+        content=ShortLinkResponse(
+            original_url=shorted_url.original_link,
+            short_url=shorted_url.short_link,
+            date=shorted_url.date
+        ).model_dump_json()
+    )
+
+    if not user and not session_id:
+        session_id = str(uuid.uuid4())
+        shorted_url.session_id = session_id
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            max_age=24 * 60 * 60
+        )
 
     db.add(shorted_url)
     await db.commit()
     await db.refresh(shorted_url)
 
-    print(shorted_url)
-
-    return ShortLinkResponse(
-        original_url=shorted_url.original_link,
-        short_url=shorted_url.short_link,
-        date=shorted_url.date
-    )
+    return response
 
 
 @redirect_route.get("/short/{short_id}")
@@ -167,3 +177,8 @@ async def read_shorts(short_id: str, db: AsyncSession = Depends(get_db)):
     print("short from DB:", short)
 
     return RedirectResponse(url=short.original_link)
+
+
+@routes.get("/history")
+async def read_history(db: AsyncSession = Depends(get_db)):
+    pass

@@ -50,7 +50,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
 
 
 @routes.post('/register', response_model=UserCreateResponse)
-async def register(user: UserCreateRequest, db: AsyncSession = Depends(get_db)):
+async def register(request: Request, user: UserCreateRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.username == user.username))
     existing = result.scalars().first()
     if existing:
@@ -64,6 +64,11 @@ async def register(user: UserCreateRequest, db: AsyncSession = Depends(get_db)):
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        await db.execute(update(Short).where(Short.session_id == session_id).values(user_id=new_user.id))
+        await db.commit()
 
     return UserCreateResponse(id=new_user.id, username=new_user.username)
 
